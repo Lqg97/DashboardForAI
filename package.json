@@ -1,0 +1,83 @@
+{
+  "name": "ai-sub-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "本地 AI 订阅管理 dashboard:多 agent 用量/额度/成本/ROI 统一视图",
+  "main": "desktop/main.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "hub": "node server/hub.js",
+    "client": "node server/client.js",
+    "build:internal": "bash scripts/build-dist.sh internal",
+    "build:public": "bash scripts/build-dist.sh public",
+    "export:public": "bash scripts/export-public.sh",
+    "test": "node --test server/pricing-sync.test.mjs server/quota/codingPlan.test.mjs server/quota/cursor.test.mjs server/store.test.mjs server/attribution.test.mjs server/hub-merge.test.mjs server/hub-store.test.mjs server/hub-machine.test.mjs server/hub-identity.test.mjs server/settings.test.mjs server/reporter.test.mjs && node server/quota/_selftest.js && node server/insights.test.mjs && node server/collectors/_selftest.store.js && node server/collectors/_selftest.js",
+    "test:coverage": "node --experimental-test-coverage --test server/pricing-sync.test.mjs server/quota/codingPlan.test.mjs server/quota/cursor.test.mjs server/store.test.mjs server/attribution.test.mjs server/hub-merge.test.mjs server/hub-store.test.mjs server/hub-machine.test.mjs server/hub-identity.test.mjs server/settings.test.mjs server/reporter.test.mjs",
+    "selftest": "node server/collectors/_selftest.js",
+    "app": "electron desktop/main.js",
+    "app:dir": "electron-builder --dir",
+    "app:dmg": "electron-builder --mac dmg",
+    "app:dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^44.1.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.codebuddy.ai-sub-dashboard",
+    "productName": "AI Sub Dashboard",
+    "directories": {
+      "output": "dist"
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "https://localhost"
+    },
+    "files": [
+      "desktop/**/*",
+      "server/**/*",
+      "public/**/*",
+      "data/config.example.json",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dir",
+        "dmg"
+      ],
+      "icon": "desktop/assets/icon.icns"
+    },
+    "dmg": {
+      "icon": "desktop/assets/icon.icns",
+      "iconSize": 128,
+      "contents": [
+        {
+          "x": 140,
+          "y": 180
+        },
+        {
+          "x": 400,
+          "y": 180,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "desktop/assets/icon.png"
+    }
+  },
+  "dependencies": {
+    "mysql2": "^3.24.4"
+  }
+}

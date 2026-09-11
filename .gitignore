@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.DS_Store
+
+# Runtime state can contain API keys, local account metadata, and usage history.
+data/*.json
+!data/*.example.json
+models-dev-pricing.json
+
+.env
+.env.*
+!.env.example
+*.log
+.omc/state/
+
+# pi-lens 的任务与会话状态(本机工具产物, 不入库)
+.pi/

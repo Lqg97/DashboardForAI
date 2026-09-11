@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 订阅仪表盘</title>
+<script src="/vendor/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<aside class="sidebar">
+  <div class="side-brand">AI 订阅<br>仪表盘</div>
+  <div class="user-bar" id="userBar" style="display:none">
+    <label>当前用户</label>
+    <div class="user-identity" id="userIdentity">—</div>
+    <div class="user-meta" id="userMeta"></div>
+  </div>
+  <div class="source-bar" id="sourceBar">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <label style="margin-bottom:0">数据视图 / 机器</label>
+      <span id="sourceBadge" class="source-badge">本机</span>
+    </div>
+    <select id="sourceSelect" class="source-select" onchange="onSourceChange(this.value)">
+      <option value="__local__">💻 本机 (当前机器)</option>
+    </select>
+  </div>
+  <div class="online-bar" id="onlineBar" style="display:none">
+    <label>联机上报(上传本机数据)</label>
+    <div class="online-status" id="onlineStatus">—</div>
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <button class="primary" id="onlineToggleBtn" onclick="toggleOnline()">开启</button>
+      <button onclick="openOnlineSettings()">设置</button>
+    </div>
+  </div>
+  <nav class="side-nav" id="side-nav">
+    <a href="#/overview" data-view="overview">总览</a>
+    <a href="#/analytics" data-view="analytics">用量分析</a>
+    <a href="#/ledger" data-view="ledger">订阅台账</a>
+  </nav>
+  <div class="side-foot">
+    <div class="side-time" id="generatedAt"></div>
+    <button class="primary side-refresh" onclick="doRefresh(true)">立即刷新</button>
+    <button id="manageBtn" onclick="openManageModal()">管理订阅</button>
+  </div>
+</aside>
+<main class="main" id="view-root"></main>
+
+<div class="modal-mask" id="manageModal">
+  <div class="modal">
+    <h3>管理订阅</h3>
+    <div id="manageList"></div>
+    <div class="form-actions">
+      <button onclick="closeManageModal()">关闭</button>
+      <button class="primary" onclick="openAgentForm()">+ 新增手动订阅</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="cardsModal">
+  <div class="modal">
+    <h3>卡片显示</h3>
+    <div class="csub" style="margin-bottom:10px">勾选需要展示的统计块与订阅卡片。偏好只保存在当前浏览器, 不会上传到服务器, 也不影响其他人。</div>
+    <div id="cardsList"></div>
+    <div class="form-actions">
+      <button onclick="closeCardsModal()">关闭</button>
+      <button class="primary" onclick="resetCardPrefs()">全部显示</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="agentFormModal">
+  <div class="modal">
+    <h3 id="subFormTitle">订阅信息</h3>
+    <form id="subForm" onsubmit="return false">
+      <div class="form-grid">
+        <div class="form-item"><label>名称(必填)</label><input name="name" required placeholder="如 Zhipu GLM 包月"></div>
+        <div class="form-item"><label>计费类型</label>
+          <select name="billingType" id="billingTypeSelect" onchange="onBillingTypeChange(this.value)">
+            <option value="subscription">包月订阅</option>
+            <option value="prepaid">按量预付费 (Prepaid)</option>
+          </select>
+        </div>
+        <div class="form-item"><label>状态</label>
+          <select name="status">
+            <option value="active">正在使用 (Active)</option>
+            <option value="historical">历史归档 / 已结束 (Historical)</option>
+          </select>
+        </div>
+        <div class="form-item"><label>套餐/标签</label><input name="plan" placeholder="如 pro / plus / 按量"></div>
+        <div class="form-item" id="priceMonthlyField"><label>月费(USD)</label><input name="priceMonthly" type="number" step="0.01" min="0"></div>
+        <div class="form-item" id="balanceField" style="display:none"><label>当前余额(USD)</label><input name="balance" type="number" step="0.01" min="0"></div>
+        <div class="form-item" id="startDateField"><label>开始时间</label><input name="startDate" type="date"></div>
+        <div class="form-item" id="expireAtField"><label>到期时间</label><input name="expireAt" type="date"></div>
+      </div>
+      <div class="form-item"><label>关联工具(用于统计用量、额度与活跃状态)</label>
+        <div class="checks" name="agentChecks" id="agentChecks"></div></div>
+      <div class="form-item" id="autoRenewField"><label>自动续费</label><select name="autoRenew"><option value="true">是</option><option value="false">否</option></select></div>
+      <div id="quotaConfigFields">
+        <div class="form-item"><label>额度来源</label>
+          <select name="quotaProvider" onchange="onQuotaProviderChange(this.value)">
+            <option value="">自动识别 / 不直连</option>
+            <option value="kimi">Kimi For Coding</option>
+            <option value="zhipu">智谱 GLM</option>
+            <option value="zhipu_team">智谱 GLM Team</option>
+            <option value="minimax">MiniMax Coding Plan</option>
+            <option value="zenmux">ZenMux</option>
+            <option value="opencode_go">OpenCode Go</option>
+            <option value="volcengine">火山方舟 Agent / Coding Plan</option>
+          </select>
+        </div>
+        <div class="form-item" id="quotaBaseUrlField"><label>额度 Base URL (可选)</label><input name="quotaBaseUrl" placeholder="国内/国际站或 ZenMux 额度端点"></div>
+        <div class="form-item" id="apiKeyField"><label>API Key / Token</label><input type="password" name="apiKey" autocomplete="off" placeholder="仅保存在本机 data/config.json"></div>
+        <div class="form-grid" id="zhipuTeamFields">
+          <div class="form-item"><label>团队 Organization ID</label><input name="teamOrganizationId"></div>
+          <div class="form-item"><label>团队 Project ID</label><input name="teamProjectId"></div>
+        </div>
+        <div class="form-grid" id="volcengineFields">
+          <div class="form-item"><label>火山 AccessKey ID</label><input name="accessKeyId" autocomplete="off"></div>
+          <div class="form-item"><label>火山 SecretAccessKey</label><input type="password" name="secretAccessKey" autocomplete="off"></div>
+        </div>
+      </div><div class="form-item"><label>备注</label><input name="note" placeholder="备注"></div>
+    </form>
+    <div class="err" id="subFormErr"></div>
+    <div class="form-actions">
+      <button onclick="closeAgentForm()">取消</button>
+      <button class="primary" onclick="saveSubForm()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-mask" id="onlineModal">
+  <div class="modal">
+    <h3>联机上报设置</h3>
+    <div class="csub" style="margin-bottom:10px">开启后, 本机将周期采集用量并上传到服务器; 仅你自己的看板链接可见, 随时可以关闭。</div>
+    <form id="onlineForm" onsubmit="return false">
+      <div class="form-item"><label>Hub 地址</label><input name="hubUrl" placeholder="如 http://your-hub-host:4780"></div>
+      <div class="form-item"><label>访问令牌 (HUB_TOKEN, 留空保持不变)</label><input type="password" name="token" autocomplete="off"></div>
+      <div class="form-grid">
+        <div class="form-item"><label>用户 ID (看板 ?user=)</label><input name="user" placeholder="默认本机用户名"></div>
+        <div class="form-item"><label>机器名 (可选)</label><input name="machine" placeholder="默认本机主机名"></div>
+      </div>
+      <div class="form-item"><label>上报周期(ms, 默认 300000)</label><input name="intervalMs" type="number" step="1000" min="15000"></div>
+    </form>
+    <div class="err" id="onlineFormErr"></div>
+    <div class="form-actions">
+      <button onclick="closeOnlineSettings()">取消</button>
+      <button class="primary" onclick="saveOnlineSettings()">保存并启用</button>
+    </div>
+  </div>
+</div>
+
+<script>window.VIEWS = {};</script>
+<script src="/views/overview.js"></script>
+<script src="/views/analytics.js"></script>
+<script src="/views/ledger.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
